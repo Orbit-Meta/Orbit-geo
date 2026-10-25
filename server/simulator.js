@@ -3,6 +3,7 @@ import { clock } from './clock.js';
 import { buildPath, destinationPoint, pointAlong } from './geo.js';
 import { estimateRoute } from './routes.js';
 import { HttpError } from './itinerary.js';
+import { appliesTo } from './schedule.js';
 
 // Per-person variety: where they start (bearing/distance from stop 1) and how
 // early/late they leave vs. plan. The third person leaves late on purpose.
@@ -36,20 +37,29 @@ export class Simulator extends EventEmitter {
     };
   }
 
-  async start({ speed = 1 } = {}) {
+  /**
+   * @param {object} opts
+   * @param {number} opts.speed
+   * @param {object} [opts.scenario]  { t0, participants: [{ id, display_name, origin, depart_in_min }] }
+   *   Without a scenario the configured participants start a few km from stop 1
+   *   and leave so they arrive roughly on plan.
+   */
+  async start({ speed = 1, scenario = null } = {}) {
     this.stop();
-    const stops = this.engine.itinerary.stops;
-    if (!stops.length) throw new HttpError(400, 'add at least one stop before starting the simulation');
+    const all = this.engine.itinerary.stops;
+    if (!all.length) throw new HttpError(400, 'add at least one stop before starting the simulation');
 
-    let roster = this.participants.all().slice(0, 5);
+    let roster = scenario?.participants ?? this.participants.all().slice(0, 5);
     if (!roster.length) roster = ['Maya', 'Dev', 'Sam'].map((n) => this.participants.adopt(n.toLowerCase(), n));
-
-    const pts = stops.map((s) => ({ lat: s.lat, lng: s.lng }));
-    const firstPlanned = Date.parse(stops[0].planned_arrival);
 
     this.agents = await Promise.all(
       roster.map(async (who, i) => {
-        const origin = destinationPoint(pts[0], BEARINGS[i % 5], DISTANCES_M[i % 5]);
+        const stops = all.filter((s) => appliesTo(s, who.id));
+        if (!stops.length) return null;
+        const pts = stops.map((s) => ({ lat: s.lat, lng: s.lng }));
+        const origin = who.origin
+          ? { lat: who.origin.lat, lng: who.origin.lng }
+          : destinationPoint(pts[0], BEARINGS[i % 5], DISTANCES_M[i % 5]);
         const route = await this.computeRoute(origin, pts[pts.length - 1], pts.slice(0, -1));
         const rawLegs = route.legs?.length === pts.length ? route.legs : estimateRoute([origin, ...pts]).legs;
         const legs = rawLegs.map((leg, j) => {
@@ -59,6 +69,10 @@ export class Simulator extends EventEmitter {
           return { path, mps: clamp(mps, 1, 30), stopId: stops[j].id, stop: pts[j] };
         });
         const firstLegS = legs[0].path.total / legs[0].mps;
+        const departAt =
+          scenario && who.depart_in_min != null
+            ? scenario.t0 + who.depart_in_min * 60_000
+            : Date.parse(stops[0].planned_arrival) - firstLegS * 1000 + START_OFFSET_MIN[i % 5] * 60_000;
         return {
           id: who.id,
           display_name: who.display_name,
@@ -66,7 +80,7 @@ export class Simulator extends EventEmitter {
           leg: 0,
           d: 0,
           phase: 'waiting',
-          departAt: firstPlanned - firstLegS * 1000 + START_OFFSET_MIN[i % 5] * 60_000,
+          departAt,
           dwellUntil: 0,
           delayUntil: 0,
           exit: null,
@@ -80,8 +94,11 @@ export class Simulator extends EventEmitter {
         };
       }),
     );
+    this.agents = this.agents.filter(Boolean);
+    if (!this.agents.length) throw new HttpError(400, 'no participant has any stops to visit');
 
-    clock.set(Math.min(...this.agents.map((a) => a.departAt)) - 45_000, speed);
+    const firstDepart = Math.min(...this.agents.map((a) => a.departAt));
+    clock.set(scenario ? Math.min(scenario.t0, firstDepart - 20_000) : firstDepart - 45_000, speed);
     this.timer = setInterval(() => this.tick(), TICK_MS);
     this.tick();
     this.emit('change');

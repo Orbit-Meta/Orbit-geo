@@ -3,7 +3,7 @@ import { config } from './config.js';
 import { clock } from './clock.js';
 import { distanceM, round5 } from './geo.js';
 import { normalizeStops } from './itinerary.js';
-import { projectPerson, personStatus, groupStopView } from './schedule.js';
+import { appliesTo, projectPerson, personStatus, groupStopView } from './schedule.js';
 
 const stopKey = (s) => `${s.lat.toFixed(6)},${s.lng.toFixed(6)}`;
 
@@ -48,8 +48,13 @@ export class Engine extends EventEmitter {
     return this.legs.refresh(this.itinerary.stops, { force }).then((changed) => changed && this.touch());
   }
 
+  /** The stops this person visits: shared stops plus their personal ones. */
+  stopsFor(p) {
+    return this.itinerary.stops.filter((s) => appliesTo(s, p.id));
+  }
+
   targetOf(p) {
-    return this.itinerary.stops.find((s) => !p.completed.has(s.id)) ?? null;
+    return this.stopsFor(p).find((s) => !p.completed.has(s.id)) ?? null;
   }
 
   ensurePerson(u) {
@@ -270,8 +275,9 @@ export class Engine extends EventEmitter {
     const located = [];
 
     for (const p of this.people.values()) {
+      const mine = this.stopsFor(p);
       const projections = projectPerson({
-        stops,
+        stops: mine,
         completed: p.completed,
         arrivals: p.arrivals,
         atStopId: p.at_stop_id,
@@ -280,7 +286,7 @@ export class Engine extends EventEmitter {
         legSeconds,
       });
       const { status, target } = personStatus({
-        stops,
+        stops: mine,
         completed: p.completed,
         atStopId: p.at_stop_id,
         projections,
@@ -321,7 +327,9 @@ export class Engine extends EventEmitter {
         projections,
         trail: p.trail,
       });
-      if (p.location) located.push({ completed: p.completed, at_stop_id: p.at_stop_id, projections });
+      if (p.location) {
+        located.push({ id: p.id, completed: p.completed, at_stop_id: p.at_stop_id, target_id: target?.id ?? null, projections });
+      }
     }
 
     return {

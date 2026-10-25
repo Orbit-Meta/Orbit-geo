@@ -163,6 +163,27 @@ timestamps. The server always replies `[]`.
 Replay and simulate feed the same `engine.ingest` pipeline as live mode, so
 geofencing, ETAs, toasts and Discord posts all behave the same way.
 
+## Demo scenarios and recorded videos
+
+Scenarios in `data/scenarios/*.json` describe a fixed set of people, with start
+points, departure times and stops. Planned times are given relative to "now". A
+stop with `"participants": ["seth"]` is a **personal stop**: only Seth's route,
+ETA and drift include it. The included `ut-austin` scenario sends Olu, Seth and
+Angel to UT Austin, with Seth stopping at Chipotle on the way.
+
+Run one from the dev bar: **Simulate**, pick the scenario, then **Start**.
+
+Record a 1080p time-lapse video of it. Edge opens and records the real
+dashboard, and the video is saved to `videos/`:
+
+```bash
+npm run demo                       # in one terminal
+npm run record -- ut-austin        # in another: --speed 30 --theme dark --follow seth:chipotle
+```
+
+The first time, run `npx playwright-core install ffmpeg`. It downloads the
+small video encoder (about 1.3 MB) that Playwright uses.
+
 ## AI layer: Muse + tools
 
 `server/museAdapter.js` exports `phraseGroupUpdate(state)`. It sends compact,

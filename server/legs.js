@@ -3,6 +3,18 @@ import { estimateRoute } from './routes.js';
 
 const pt = (p) => ({ lat: p.lat, lng: p.lng });
 
+/** Consecutive pairs for everyone's own sequence when some stops are personal. */
+function personalPairs(stops) {
+  const ids = new Set(stops.flatMap((s) => s.participants ?? []));
+  const sequences = [stops.filter((s) => !s.participants?.length)];
+  for (const id of ids) sequences.push(stops.filter((s) => !s.participants?.length || s.participants.includes(id)));
+  const pairs = new Map();
+  for (const seq of sequences) {
+    for (let i = 1; i < seq.length; i++) pairs.set(LegCache.key(seq[i - 1], seq[i]), [seq[i - 1], seq[i]]);
+  }
+  return [...pairs.values()];
+}
+
 /**
  * Cache of stop-to-stop travel times, keyed by coordinates so reordering or
  * renaming stops reuses what we already know. Refreshed every few minutes.
@@ -36,7 +48,8 @@ export class LegCache {
   async doRefresh(stops, force) {
     if (stops.length < 2) return false;
     const now = Date.now();
-    const pairs = stops.slice(1).map((b, i) => [stops[i], b]);
+    const personal = stops.some((s) => s.participants?.length);
+    const pairs = personal ? personalPairs(stops) : stops.slice(1).map((b, i) => [stops[i], b]);
     const needs = pairs.filter(([a, b]) => {
       const e = this.entries.get(LegCache.key(a, b));
       return force || !e || e.estimated || now - e.fetched_at > config.legRefreshMs;
@@ -46,8 +59,8 @@ export class LegCache {
     const store = (a, b, leg, estimated) =>
       this.entries.set(LegCache.key(a, b), { duration_s: leg.duration_s, distance_m: leg.distance_m, estimated, fetched_at: now });
 
-    if (config.travelMode === 'TRANSIT') {
-      // Transit does not support intermediates: one call per pair.
+    if (personal || config.travelMode === 'TRANSIT') {
+      // Per-person sequences (or transit, which has no intermediates): one call per pair.
       for (const [a, b] of needs) {
         const r = await this.computeRoute(pt(a), pt(b));
         store(a, b, r, r.estimated);

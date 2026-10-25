@@ -65,6 +65,7 @@ export class MapScene {
     this.snap = null;
     this.itinVersion = null;
     this.overviewBox = null;
+    this.overviewZoom = 0;
     this.reduced = prefersReducedMotion();
     this.lastFrame = performance.now();
     this.lastSlow = 0;
@@ -149,7 +150,7 @@ export class MapScene {
     if (this.introState === 'pending') {
       this.maybeStartIntro();
     } else if (this.mode === 'overview' && !this.tween && this.introState === 'done') {
-      if (snap.itinerary.version !== this.itinVersion || this.someoneOutsideOverview()) this.flyToOverview(1600);
+      if (snap.itinerary.version !== this.itinVersion || this.overviewStale()) this.flyToOverview(2200);
     }
     this.itinVersion = snap.itinerary.version;
   }
@@ -387,7 +388,6 @@ export class MapScene {
 
     const padLat = Math.max((box.maxLat - box.minLat) * 0.15, 0.002);
     const padLng = Math.max((box.maxLng - box.minLng) * 0.15, 0.002);
-    this.overviewBox = { minLat: box.minLat - padLat, maxLat: box.maxLat + padLat, minLng: box.minLng - padLng, maxLng: box.maxLng + padLng };
 
     // Shift west so the content centres in the area right of the side panel.
     const lngShift = ((panel / 2) * 360) / (256 * 2 ** zoom);
@@ -397,22 +397,33 @@ export class MapScene {
       zoom,
       tilt: OVERVIEW.tilt,
       heading: OVERVIEW.heading,
+      box: { minLat: box.minLat - padLat, maxLat: box.maxLat + padLat, minLng: box.minLng - padLng, maxLng: box.maxLng + padLng },
     };
   }
 
-  someoneOutsideOverview() {
+  /** Re-frame when someone leaves the frame, or the group has converged enough to zoom in. */
+  overviewStale() {
     const b = this.overviewBox;
     if (!b) return true;
     for (const v of this.people.values()) {
       const p = v.to;
       if (p && (p.lat < b.minLat || p.lat > b.maxLat || p.lng < b.minLng || p.lng > b.maxLng)) return true;
     }
-    return false;
+    const next = this.overviewTarget();
+    return Boolean(next && next.zoom - this.overviewZoom > 0.9);
+  }
+
+  /** Remembers what the overview camera is framing. */
+  useOverview(target) {
+    this.overviewBox = target.box;
+    this.overviewZoom = target.zoom;
+    return target;
   }
 
   flyToOverview(ms) {
     const target = this.overviewTarget();
     if (!target) return;
+    this.useOverview(target);
     this.cam = this.readCam();
     this.tweenTo(target, ms);
   }
@@ -440,6 +451,7 @@ export class MapScene {
     if (this.introState !== 'pending' || !this.tilesLoaded || !this.snap) return;
     const target = this.overviewTarget();
     if (!target) return;
+    this.useOverview(target);
     this.introState = 'running';
     this.itinVersion = this.snap.itinerary.version;
     this.el.classList.add('visible');
@@ -514,6 +526,7 @@ export class MapScene {
         this.drawTrail(v);
         this.drawRoute(v);
       }
+      this.layoutHuddles();
     }
     if (!this.reduced && t - this.lastFlow > 48) {
       this.lastFlow = t;
@@ -559,6 +572,33 @@ export class MapScene {
       heading: this.reduced ? this.cam.heading : lerpAngle(this.cam.heading, v.camHeading ?? this.cam.heading, 1 - Math.exp(-dt / 0.9)),
     };
     this.moveCamera();
+  }
+
+  /** People waiting at the same stop fan out in an arc under its pin instead of stacking. */
+  layoutHuddles() {
+    const groups = new Map();
+    for (const v of this.people.values()) {
+      const at = v.data?.at_stop_id;
+      if (at) groups.set(at, [...(groups.get(at) ?? []), v]);
+      else v.huddle = null;
+    }
+    for (const group of groups.values()) group.forEach((v, i) => (v.huddle = { i, n: group.length }));
+    for (const v of this.people.values()) {
+      let fx = 0;
+      let fy = 0;
+      if (v.huddle && v.huddle.n > 1) {
+        const { i, n } = v.huddle;
+        const angle = ((20 + (140 * i) / (n - 1)) * Math.PI) / 180; // 20°…160°, below the pin
+        fx = Math.round(Math.cos(angle) * 34);
+        fy = Math.round(Math.sin(angle) * 26 + 8);
+      }
+      const key = `${fx},${fy}`;
+      if (v.fanKey !== key) {
+        v.fanKey = key;
+        v.el.style.setProperty('--fx', `${fx}px`);
+        v.el.style.setProperty('--fy', `${fy}px`);
+      }
+    }
   }
 
   drawTrail(v) {

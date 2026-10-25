@@ -27,6 +27,9 @@ export function normalizeStops(input) {
     if (seen.has(id)) id = newId();
     seen.add(id);
     const stay = Number(s.stay_min);
+    const only = Array.isArray(s.participants)
+      ? [...new Set(s.participants.map((p) => String(p).toLowerCase().trim()).filter(Boolean))].slice(0, 20)
+      : [];
     return {
       id,
       name: String(s.name || `Stop ${i + 1}`).slice(0, 120),
@@ -36,6 +39,7 @@ export function normalizeStops(input) {
       planned_arrival: new Date(planned).toISOString(),
       stay_min: Number.isFinite(stay) ? Math.max(0, Math.min(24 * 60, Math.round(stay))) : 0,
       ...(s.place_id ? { place_id: String(s.place_id).slice(0, 200) } : {}),
+      ...(only.length ? { participants: only } : {}),
     };
   });
 }

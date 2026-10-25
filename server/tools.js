@@ -12,6 +12,11 @@ const STOP_SCHEMA = {
     lng: { type: 'number' },
     planned_arrival: { type: 'string', format: 'date-time', description: 'Planned arrival, ISO-8601' },
     stay_min: { type: 'integer', minimum: 0, description: 'Planned stay length in minutes' },
+    participants: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Optional: participant ids for a personal stop (e.g. one person grabbing food). Omit for everyone.',
+    },
   },
   required: ['name', 'lat', 'lng', 'planned_arrival', 'stay_min'],
   additionalProperties: false,

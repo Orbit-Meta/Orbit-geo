@@ -152,7 +152,10 @@ code {
   position: relative;
   width: 46px;
   height: 46px;
-  transform: translateY(50%); /* AdvancedMarker anchors bottom-centre; centre it on the point */
+  /* AdvancedMarker anchors bottom-centre: centre it on the point, then fan out
+     (--fx/--fy) when several people are at the same stop. */
+  transform: translate(var(--fx, 0px), calc(50% + var(--fy, 0px)));
+  transition: transform 0.7s var(--spring);
   cursor: pointer;
 }
 .am-dot {
@@ -358,6 +361,16 @@ code {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+.orbit-mark {
+  display: block;
+  /* The logo is black art on white: multiply drops the white in light mode,
+     invert + screen turns it into white art with no box in dark mode. */
+  mix-blend-mode: multiply;
+}
+:root[data-theme='dark'] .orbit-mark {
+  filter: invert(1);
+  mix-blend-mode: screen;
 }
 .brand-name {
   font-weight: 700;
@@ -722,9 +735,28 @@ code {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.personal-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--info-bg);
+  color: var(--info);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+}
+.timelapse-pill {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--fill-2);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+}
 .stop-times {
   display: grid;
-  grid-template-columns: 1fr 1fr 0.8fr;
+  grid-template-columns: 1.1fr 1fr 0.8fr;
   gap: 6px;
   margin-top: 9px;
 }
@@ -771,7 +803,7 @@ code {
   border-color: var(--accent);
 }
 .inline-input::-webkit-calendar-picker-indicator {
-  opacity: 0.35;
+  display: none;
 }
 .stay-input {
   display: flex;

@@ -18,6 +18,7 @@ import { createTools } from './tools.js';
 import { Recorder } from './recorder.js';
 import { Simulator } from './simulator.js';
 import { ModeManager } from './modes.js';
+import { Scenarios } from './scenarios.js';
 
 // ---------------------------------------------------------------------------
 // Wiring: OwnTracks / replay / simulator → Engine → Alerts → Socket.IO + Discord
@@ -39,7 +40,8 @@ const discord = new Discord(config.discordWebhook);
 const alerts = new Alerts({ discord, muse, emitToast: (t) => io.emit('toast', t) });
 const recorder = new Recorder(config.paths.recordings);
 const simulator = new Simulator({ engine, participants, computeRoute, onUpdate: (u) => engine.ingest(u) });
-const modes = new ModeManager({ engine, recorder, simulator, alerts });
+const scenarios = new Scenarios(path.join(config.paths.data, 'scenarios'));
+const modes = new ModeManager({ engine, recorder, simulator, alerts, scenarios, participants });
 
 const setItinerary = (stops) => engine.setItinerary(stops, { persist: modes.mode !== 'replay' });
 const tools = createTools({ engine, alerts, setItinerary });
@@ -106,6 +108,7 @@ app.post(
 );
 
 app.get('/api/recordings', route(() => recorder.list()));
+app.get('/api/scenarios', route(() => scenarios.list()));
 app.post(
   '/api/mode',
   route(async (req) => {

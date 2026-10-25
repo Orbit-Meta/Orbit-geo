@@ -2,6 +2,9 @@
 
 const round1 = (v) => Math.round(v * 10) / 10;
 
+/** A stop with a `participants` list is a personal stop (e.g. one person's food run). */
+export const appliesTo = (stop, participantId) => !stop.participants?.length || stop.participants.includes(participantId);
+
 function entry(arriveAt, plannedMs, kind) {
   return {
     arrive_at: arriveAt,
@@ -72,24 +75,28 @@ export function personStatus({ stops, completed, atStopId, projections, lateMin 
 }
 
 /**
- * Group view of each stop: when the whole group is projected to be there
- * (latest person), drift vs. plan, and completed / active / upcoming.
+ * Group view of each stop, over the people it applies to: when they are all
+ * projected to be there (latest person), drift vs. plan, and
+ * completed (all left) / active (someone's current target) / upcoming.
+ *
+ * @param people [{ id, completed, at_stop_id, target_id, projections }]
  */
 export function groupStopView(stops, people) {
-  const doneByAll = (s) => people.length > 0 && people.every((p) => p.completed.has(s.id));
-  const firstOpen = stops.findIndex((s) => !doneByAll(s));
-  return stops.map((s, i) => {
+  return stops.map((s) => {
+    const ps = people.filter((p) => appliesTo(s, p.id));
     const planned = Date.parse(s.planned_arrival);
-    const times = people.map((p) => p.projections[s.id]?.arrive_at).filter((v) => v != null);
+    const times = ps.map((p) => p.projections[s.id]?.arrive_at).filter((v) => v != null);
     const projected = times.length ? Math.max(...times) : null;
+    const completed = ps.length > 0 && ps.every((p) => p.completed.has(s.id));
+    const active = !completed && (ps.some((p) => p.target_id === s.id) || (!people.length && s === stops[0]));
     return {
       stop_id: s.id,
       projected_at: projected,
       drift_min: projected == null ? null : round1((projected - planned) / 60_000),
-      state: doneByAll(s) ? 'completed' : i === firstOpen ? 'active' : 'upcoming',
-      here: people.filter((p) => p.at_stop_id === s.id).map((p) => p.id),
-      arrived_count: people.filter((p) => p.at_stop_id === s.id || p.completed.has(s.id)).length,
-      total: people.length,
+      state: completed ? 'completed' : active ? 'active' : 'upcoming',
+      here: ps.filter((p) => p.at_stop_id === s.id).map((p) => p.id),
+      arrived_count: ps.filter((p) => p.at_stop_id === s.id || p.completed.has(s.id)).length,
+      total: ps.length,
     };
   });
 }

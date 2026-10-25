@@ -55,7 +55,8 @@ export class Alerts {
         toast: `${p.display_name} arrived at ${s.name}`,
         event: { type: 'arrived', participant_id: p.id, stop_id: s.id },
       });
-      const everyone = located.length > 1 && located.every((x) => x.at_stop_id === s.id || x.completed_stop_ids.includes(s.id));
+      const expected = located.filter((x) => !s.participants?.length || s.participants.includes(x.id));
+      const everyone = expected.length > 1 && expected.every((x) => x.at_stop_id === s.id || x.completed_stop_ids.includes(s.id));
       if (everyone) {
         this.fire(view, {
           key: `all:${s.id}`,

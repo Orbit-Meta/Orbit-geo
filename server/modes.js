@@ -10,12 +10,15 @@ export const SPEEDS = { replay: [1, 4, 10], simulate: [1, 4, 10, 30] };
  * simulate: fake participants drive real routes through Engine.ingest.
  */
 export class ModeManager extends EventEmitter {
-  constructor({ engine, recorder, simulator, alerts }) {
+  constructor({ engine, recorder, simulator, alerts, scenarios, participants }) {
     super();
     this.engine = engine;
     this.recorder = recorder;
     this.simulator = simulator;
     this.alerts = alerts;
+    this.scenarios = scenarios;
+    this.participants = participants;
+    this.scenario = null;
     this.mode = 'live';
     this.replay = null;
     this.liveStops = null;
@@ -37,7 +40,7 @@ export class ModeManager extends EventEmitter {
       speeds: SPEEDS[this.mode] ?? [1],
       recording: this.mode === 'live' ? this.recorder.info() : null,
       replay: r ? { file: r.file, index: r.index, total: r.entries.length, playing: r.playing } : null,
-      sim: this.mode === 'simulate' ? this.simulator.info() : null,
+      sim: this.mode === 'simulate' ? { ...this.simulator.info(), scenario: this.scenario } : null,
     };
   }
 
@@ -51,7 +54,9 @@ export class ModeManager extends EventEmitter {
     if (!['live', 'replay', 'simulate'].includes(name)) throw new HttpError(400, 'mode must be live, replay or simulate');
     const speed = name === 'live' ? 1 : this.checkSpeed(name, opts.speed ?? 1);
     const file = name === 'replay' ? opts.file || this.recorder.list()[0]?.name : null;
-    const recording = name === 'replay' ? this.recorder.load(file) : null; // fail before tearing anything down
+    // Load anything that can fail before tearing the current mode down.
+    const recording = name === 'replay' ? this.recorder.load(file) : null;
+    const scenario = name === 'simulate' && opts.scenario ? this.scenarios.load(opts.scenario) : null;
 
     this.teardown();
     if (this.liveStops) {
@@ -60,13 +65,20 @@ export class ModeManager extends EventEmitter {
     }
     this.engine.reset();
     this.mode = name;
+    this.scenario = scenario ? { id: scenario.id, name: scenario.name } : null;
 
     try {
       if (name === 'live') clock.reset();
       else if (name === 'replay') this.startReplay(recording, file, speed);
+      else if (scenario) await this.startScenario(scenario, speed);
       else await this.simulator.start({ speed });
     } catch (err) {
       this.mode = 'live';
+      this.scenario = null;
+      if (this.liveStops) {
+        this.engine.setItinerary(this.liveStops, { persist: false });
+        this.liveStops = null;
+      }
       clock.reset();
       throw err;
     } finally {
@@ -90,6 +102,13 @@ export class ModeManager extends EventEmitter {
     this.simulator.stop();
     if (this.replay) clearTimeout(this.replay.timer);
     this.replay = null;
+  }
+
+  async startScenario(scenario, speed) {
+    this.liveStops = this.engine.itinerary.stops;
+    for (const p of scenario.participants) this.participants.upsert(p);
+    this.engine.setItinerary(scenario.stops, { persist: false });
+    await this.simulator.start({ speed, scenario });
   }
 
   startReplay(rec, file, speed) {

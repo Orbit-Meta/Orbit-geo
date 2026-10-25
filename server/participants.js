@@ -59,6 +59,15 @@ export class Participants {
     return created;
   }
 
+  /** Adds or replaces a participant's display config (used by scenarios). */
+  upsert(p) {
+    const i = this.list.findIndex((x) => x.id === String(p.id).toLowerCase());
+    const filled = this.fill(p, i >= 0 ? i : this.list.length);
+    if (i >= 0) this.list[i] = filled;
+    else this.list.push(filled);
+    return filled;
+  }
+
   get(id) {
     return this.list.find((p) => p.id === id) ?? null;
   }

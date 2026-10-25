@@ -15,6 +15,9 @@ export function Panel({ snap, theme, onToggleTheme, mapsKey, followId, onFollow 
   useTick(1000);
   const vnow = virtualNow(snap);
   const located = snap?.people.filter((p) => p.location).length ?? 0;
+  // ?timelapse in the URL labels sped-up playback, e.g. for recorded demo videos.
+  const rate = snap?.clock.rate ?? 1;
+  const showRate = rate > 1 && new URLSearchParams(window.location.search).has('timelapse');
 
   return (
     <aside className="panel glass" aria-label="Itinerary and people">
@@ -25,6 +28,7 @@ export function Panel({ snap, theme, onToggleTheme, mapsKey, followId, onFollow 
             <div className="brand-name">Meta Orbit</div>
             <div className="brand-sub">
               <span className="live-dot" /> Live · {fmtTime(vnow)}
+              {showRate && <span className="timelapse-pill">{rate}× time-lapse</span>}
             </div>
           </div>
         </div>

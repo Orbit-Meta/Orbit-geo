@@ -34,15 +34,4 @@ export const Battery = ({ pct }) => (
     <path d="M26 6.5v3" />
   </svg>
 );
-export const OrbitMark = () => (
-  <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
-    <defs>
-      <linearGradient id="orbit-g" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor="#0A84FF" />
-        <stop offset="1" stopColor="#A855F7" />
-      </linearGradient>
-    </defs>
-    <circle cx="16" cy="16" r="6" fill="url(#orbit-g)" />
-    <ellipse cx="16" cy="16" rx="14" ry="6" fill="none" stroke="url(#orbit-g)" strokeWidth="2.2" transform="rotate(-25 16 16)" />
-  </svg>
-);
+export const OrbitMark = () => <img className="orbit-mark" src="/orbit-logo.png" width="40" height="40" alt="" aria-hidden="true" />;

@@ -62,14 +62,28 @@ test('status: on_time, late (> 5 min), arrived, done', () => {
 
 test('group view uses the latest person and marks the active stop', () => {
   const people = [
-    { id: 'maya', completed: new Set(['a']), at_stop_id: null, projections: { a: { arrive_at: T0 }, b: { arrive_at: T0 + min(50) } } },
-    { id: 'dev', completed: new Set(), at_stop_id: 'a', projections: { a: { arrive_at: T0 + min(11) }, b: { arrive_at: T0 + min(58) } } },
+    { id: 'maya', completed: new Set(['a']), at_stop_id: null, target_id: 'b', projections: { a: { arrive_at: T0 }, b: { arrive_at: T0 + min(50) } } },
+    { id: 'dev', completed: new Set(), at_stop_id: 'a', target_id: 'a', projections: { a: { arrive_at: T0 + min(11) }, b: { arrive_at: T0 + min(58) } } },
   ];
   const g = groupStopView(stops, people);
   assert.equal(g[0].state, 'active');
   assert.equal(g[0].projected_at, T0 + min(11));
   assert.equal(g[1].drift_min, 8);
-  assert.equal(g[1].state, 'upcoming');
+  assert.equal(g[1].state, 'active', "maya's target");
+  assert.equal(g[2].state, 'upcoming');
   assert.deepEqual(g[0].here, ['dev']);
   assert.equal(g[0].arrived_count, 2);
+});
+
+test('personal stops only count the people they belong to', () => {
+  const personal = [{ ...stops[0], participants: ['dev'] }, stops[1]];
+  const people = [
+    { id: 'maya', completed: new Set(), at_stop_id: null, target_id: 'b', projections: { b: { arrive_at: T0 + min(45) } } },
+    { id: 'dev', completed: new Set(['a']), at_stop_id: null, target_id: 'b', projections: { a: { arrive_at: T0 + min(12) }, b: { arrive_at: T0 + min(60) } } },
+  ];
+  const g = groupStopView(personal, people);
+  assert.equal(g[0].total, 1);
+  assert.equal(g[0].state, 'completed', 'only dev had to visit it');
+  assert.equal(g[1].total, 2);
+  assert.equal(g[1].drift_min, 10);
 });

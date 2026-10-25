@@ -17,6 +17,8 @@ export function DevBar({ snap, connected }) {
   const [hidden, setHidden] = useState(readHidden);
   const [tab, setTab] = useState('live');
   const [recordings, setRecordings] = useState([]);
+  const [scenarios, setScenarios] = useState([]);
+  const [scenario, setScenario] = useState('');
   const [file, setFile] = useState('');
   const [speed, setSpeed] = useState({ replay: 4, simulate: 10 });
   const [busy, setBusy] = useState(false);
@@ -53,6 +55,7 @@ export function DevBar({ snap, connected }) {
   }, []);
   useEffect(() => {
     if (tab === 'replay') loadRecordings();
+    if (tab === 'simulate') api('/api/scenarios').then(setScenarios).catch(() => {});
   }, [tab, loadRecordings]);
 
   const run = async (fn) => {
@@ -129,8 +132,21 @@ export function DevBar({ snap, connected }) {
 
         {tab === 'simulate' && (
           <>
+            <select className="dev-select" value={scenario} onChange={(e) => setScenario(e.target.value)} title="Scenario">
+              <option value="">Current plan</option>
+              {scenarios.map((s) => (
+                <option key={s.id} value={s.id} title={s.description}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
             <SpeedChips speeds={SPEEDS.simulate} value={speed.simulate} onChange={(s) => changeSpeed('simulate', s)} />
-            <button type="button" className="dev-btn primary" disabled={busy} onClick={() => start('simulate', { speed: speed.simulate })}>
+            <button
+              type="button"
+              className="dev-btn primary"
+              disabled={busy}
+              onClick={() => start('simulate', { speed: speed.simulate, scenario: scenario || undefined })}
+            >
               {mode?.name === 'simulate' ? 'Restart' : 'Start'}
             </button>
             {sim?.running &&

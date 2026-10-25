@@ -84,8 +84,16 @@ function useFlip(listRef, keys) {
   }, [keys, listRef, reduced]);
 }
 
+const appliesTo = (stop, id) => !stop.participants?.length || stop.participants.includes(id);
+
+function PersonalTag({ stop, people }) {
+  if (!stop.participants?.length) return null;
+  const names = stop.participants.map((id) => people.find((p) => p.id === id)?.display_name ?? id);
+  return <span className="personal-tag">{names.join(', ')} only</span>;
+}
+
 function PersonChips({ stop, people }) {
-  const located = people.filter((p) => p.location);
+  const located = people.filter((p) => p.location && appliesTo(stop, p.id));
   if (!located.length) return null;
   return (
     <div className="chips">
@@ -223,7 +231,10 @@ export function Timeline({ snap, vnow, mapsKey }) {
                   <div className="stop-name">{stop.name}</div>
                   <DriftBadge drift={st?.drift_min} state={state} settings={settings} />
                 </div>
-                {stop.address && <div className="stop-addr">{stop.address}</div>}
+                <div className="stop-addr">
+                  <PersonalTag stop={stop} people={people} />
+                  {stop.address}
+                </div>
                 <div className="stop-times">
                   <label className="field">
                     <span className="field-label">Planned</span>

@@ -10,3 +10,4 @@ data/itinerary.json
 data/participants.json
 recordings/*.json
 !recordings/.gitkeep
+videos/

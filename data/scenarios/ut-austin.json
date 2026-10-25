@@ -1,0 +1,51 @@
+{
+  "name": "Meet up at UT Austin",
+  "description": "Olu, Seth and Angel head to UT Austin. Seth grabs Chipotle on the Drag first, which pushes his ETA back.",
+  "participants": [
+    {
+      "id": "olu",
+      "display_name": "Olu",
+      "color": "#5B8CFF",
+      "initial": "O",
+      "origin": { "lat": 30.2493, "lng": -97.7497, "label": "South Congress" },
+      "depart_in_min": 0
+    },
+    {
+      "id": "seth",
+      "display_name": "Seth",
+      "color": "#FF5A5F",
+      "initial": "S",
+      "origin": { "lat": 30.2661, "lng": -97.7711, "label": "Zilker" },
+      "depart_in_min": 0
+    },
+    {
+      "id": "angel",
+      "display_name": "Angel",
+      "color": "#22C55E",
+      "initial": "A",
+      "origin": { "lat": 30.2632, "lng": -97.7139, "label": "East Austin" },
+      "depart_in_min": 1
+    }
+  ],
+  "stops": [
+    {
+      "id": "chipotle",
+      "name": "Chipotle",
+      "address": "2230 Guadalupe St, Austin, TX 78705",
+      "lat": 30.2868,
+      "lng": -97.742,
+      "planned_in_min": 13,
+      "stay_min": 12,
+      "participants": ["seth"]
+    },
+    {
+      "id": "ut",
+      "name": "UT Austin",
+      "address": "Main Building, 110 Inner Campus Dr, Austin, TX 78712",
+      "lat": 30.2862,
+      "lng": -97.7394,
+      "planned_in_min": 18,
+      "stay_min": 90
+    }
+  ]
+}
