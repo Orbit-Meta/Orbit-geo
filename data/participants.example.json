@@ -1,0 +1,25 @@
+{
+  "participants": [
+    {
+      "id": "maya",
+      "display_name": "Maya",
+      "color": "#FF5A5F",
+      "initial": "M",
+      "match": ["maya", "MY"]
+    },
+    {
+      "id": "dev",
+      "display_name": "Dev",
+      "color": "#5B8CFF",
+      "initial": "D",
+      "match": ["dev", "DV"]
+    },
+    {
+      "id": "sam",
+      "display_name": "Sam",
+      "color": "#22C55E",
+      "initial": "S",
+      "match": ["sam", "SM"]
+    }
+  ]
+}
